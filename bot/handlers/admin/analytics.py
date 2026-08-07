@@ -147,13 +147,17 @@ async def analytics_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── Сводка по серверам ──────────────────────────
 
 def _build_servers_text(d: dict) -> str:
+    # IKEv2 онлайн приходит из прямого опроса серверов (node_exporter,
+    # метрика ipsec_clients), а не из heartbeat приложения.
+    ikev2_connecting = d.get("ikev2Connecting", 0)
+    ikev2_connecting_part = f" (🔄 {ikev2_connecting})" if ikev2_connecting else ""
     text = (
         "🖥 <b>Сводка по серверам</b>\n"
         "━━━━━━━━━━━━━━━\n"
         f"📦 Всего серверов: <b>{d.get('totalServers', 0)}</b> "
         f"(🔐 {d.get('ikev2Servers', 0)} · ⚡ {d.get('vlessServers', 0)} · 👽 {d.get('awgServers', 0)})\n\n"
         f"📱 Подключено к VPN: <b>{d.get('totalOnline', 0)}</b>\n"
-        f"   🔐 IKEv2: <b>{d.get('ikev2Online', 0)}</b>\n"
+        f"   🔐 IKEv2: <b>{d.get('ikev2Online', 0)}</b>{ikev2_connecting_part}\n"
         f"   ⚡ VLESS: <b>{d.get('vlessOnline', 0)}</b>\n"
         f"   👽 AWG: <b>{d.get('awgOnline', 0)}</b>\n"
     )
@@ -164,9 +168,14 @@ def _build_servers_text(d: dict) -> str:
         for s in servers:
             status = "🟢" if s.get("status") else "🔴"
             premium = "⭐ " if s.get("premium") else ""
+            connecting = s.get("connectingUsers", 0)
+            connecting_part = f" (🔄 {connecting})" if connecting else ""
+            # metricsFresh=False — метрики с сервера не получены (сам сервер
+            # или его node_exporter недоступен), онлайн показан как 0.
+            stale_part = "" if s.get("metricsFresh", True) else " ⚠️"
             text += (
                 f"{status} {premium}{esc(field(s.get('country'), 'N/A'))} "
-                f"({esc(s.get('ipAddress', 'N/A'))}) — <b>{s.get('onlineUsers', 0)}</b>\n"
+                f"({esc(s.get('ipAddress', 'N/A'))}) — <b>{s.get('onlineUsers', 0)}</b>{connecting_part}{stale_part}\n"
             )
 
     vless_servers = d.get("vlessServersList", [])
@@ -190,7 +199,11 @@ def _build_servers_text(d: dict) -> str:
                 f"({esc(s.get('ipAddress', 'N/A'))}) — <b>{s.get('onlineUsers', 0)}</b>\n"
             )
 
-    text += "\n<i>🔄 Обновляется автоматически каждые 3 сек.</i>"
+    text += (
+        "\n<i>🔄 Обновляется автоматически каждые 3 сек.\n"
+        "🔐 IKEv2 — данные напрямую с серверов (ipsec_clients, опрос ~60 сек); "
+        "🔄 N = подключаются сейчас; ⚠️ = метрики с сервера недоступны.</i>"
+    )
     text += esc(get_api_status_block())
     return text
 

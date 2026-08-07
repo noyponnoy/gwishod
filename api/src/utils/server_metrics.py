@@ -22,6 +22,20 @@ STATE_FILE = os.path.join(os.path.dirname(__file__), "metrics_state.json")
 tx_pattern = re.compile(r'node_network_transmit_bytes_total\{[^}]*device="([^"]+)"[^}]*\}\s+([0-9\.eE\+\-]+)')
 rx_pattern = re.compile(r'node_network_receive_bytes_total\{[^}]*device="([^"]+)"[^}]*\}\s+([0-9\.eE\+\-]+)')
 
+# ── IKEv2 онлайн напрямую с серверов ─────────────────────────────────────────
+# Каждый IKEv2 VPS (strongSwan) отдаёт через node_exporter (textfile-коллектор):
+#   ipsec_clients    (gauge) — число UP IKEv2 SA = подключённые клиенты;
+#   ipsec_connecting (gauge) — клиенты в процессе подключения.
+# Это единственный источник правды для онлайна IKEv2 (heartbeat из приложения
+# для IKEv2 больше не используется). VLESS/AWG это не касается.
+ipsec_clients_pattern = re.compile(r'^ipsec_clients(?:\{[^}]*\})?\s+([0-9]+(?:\.[0-9]+)?)\s*$', re.MULTILINE)
+ipsec_connecting_pattern = re.compile(r'^ipsec_connecting(?:\{[^}]*\})?\s+([0-9]+(?:\.[0-9]+)?)\s*$', re.MULTILINE)
+
+# Сколько секунд данные ipsec_* считаются свежими.
+# Опрос идёт раз в 60 сек => 180 сек = терпим до 2 пропущенных опросов,
+# после этого сервер показывает 0 (данным верить нельзя).
+IPSEC_STATS_MAX_AGE_SECONDS = 180
+
 
 def load_state():
     global SERVER_METRICS_STATE
@@ -76,13 +90,59 @@ def parse_metrics(text: str):
     return tx_total, rx_total
 
 
+def parse_ipsec_stats(text: str):
+    """Достаёт ipsec_clients / ipsec_connecting из ответа node_exporter.
+
+    Возвращает (clients, connecting). Если метрики ipsec_clients в ответе нет
+    (например, это не IKEv2-сервер) — возвращает (None, None).
+    """
+    clients = None
+    connecting = None
+    m = ipsec_clients_pattern.search(text)
+    if m:
+        try:
+            clients = int(float(m.group(1)))
+        except ValueError:
+            clients = None
+    m = ipsec_connecting_pattern.search(text)
+    if m:
+        try:
+            connecting = int(float(m.group(1)))
+        except ValueError:
+            connecting = None
+    return clients, connecting
+
+
+def get_ipsec_stats(ip: str):
+    """Свежие данные об онлайне IKEv2-сервера из последнего опроса метрик.
+
+    Возвращает {"clients": int, "connecting": int, "age_seconds": int}
+    или None, если данных нет / они устарели (сервер недоступен).
+    """
+    data = SERVER_METRICS_STATE.get(ip)
+    if not data:
+        return None
+    updated_at = data.get("ipsec_updated_at")
+    if not updated_at:
+        return None
+    age = time.time() - updated_at
+    if age > IPSEC_STATS_MAX_AGE_SECONDS:
+        return None
+    return {
+        "clients": int(data.get("ipsec_clients") or 0),
+        "connecting": int(data.get("ipsec_connecting") or 0),
+        "age_seconds": int(age),
+    }
+
+
 async def fetch_and_update_metric(client: httpx.AsyncClient, ip: str):
     try:
         url = f"http://{ip}:9100/metrics"
         resp = await client.get(url, timeout=4.0)
         resp.raise_for_status()
-        
+
         new_tx, new_rx = parse_metrics(resp.text)
+        ipsec_clients, ipsec_connecting = parse_ipsec_stats(resp.text)
         now = time.time()
         
         load_pct = 1 # default min load
@@ -106,13 +166,31 @@ async def fetch_and_update_metric(client: httpx.AsyncClient, ip: str):
             else:
                 load_pct = old.get("load_percent", 1)
                 
-        SERVER_METRICS_STATE[ip] = {
+        entry = {
             "timestamp": now,
             "tx_bytes": new_tx,
             "rx_bytes": new_rx,
             "load_percent": load_pct
         }
-        logger.info(f"IKEv2 metric OK: {ip} -> load={load_pct}%")
+
+        # Онлайн IKEv2: пишем только если метрика реально пришла в этом опросе.
+        # Если сервер отвечает, но ipsec_* отсутствует (не IKEv2-хост) — переносим
+        # старые значения как есть: их свежесть контролирует ipsec_updated_at.
+        if ipsec_clients is not None:
+            entry["ipsec_clients"] = ipsec_clients
+            entry["ipsec_connecting"] = ipsec_connecting if ipsec_connecting is not None else 0
+            entry["ipsec_updated_at"] = now
+        elif ip in SERVER_METRICS_STATE:
+            old = SERVER_METRICS_STATE[ip]
+            for key in ("ipsec_clients", "ipsec_connecting", "ipsec_updated_at"):
+                if key in old:
+                    entry[key] = old[key]
+
+        SERVER_METRICS_STATE[ip] = entry
+        if ipsec_clients is not None:
+            logger.info(f"IKEv2 metric OK: {ip} -> load={load_pct}%, ipsec_clients={ipsec_clients}, ipsec_connecting={entry['ipsec_connecting']}")
+        else:
+            logger.info(f"IKEv2 metric OK: {ip} -> load={load_pct}%")
         
     except httpx.RequestError as e:
         logger.warning(f"IKEv2 metric FAILED: {ip} -> {e}")

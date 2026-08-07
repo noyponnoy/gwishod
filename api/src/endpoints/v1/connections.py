@@ -18,7 +18,14 @@ DB_NAME = "GreyWebVPN"
 COLLECTION_NAME = "active_connections"
 
 # ── Параметры учёта ──────────────────────────────────────────────────────────
-# Сколько минут без heartbeat юзер считается онлайн.
+# ВАЖНО: heartbeat-учёт остался ТОЛЬКО для VLESS и AWG.
+# Онлайн IKEv2 больше НЕ считается по heartbeat из приложения — API сам
+# опрашивает каждый IKEv2-сервер (node_exporter :9100, метрика ipsec_clients)
+# в src/utils/server_metrics.py и берёт число подключённых оттуда.
+# heartbeat/connect с protocol=ikev2 (старые версии приложения) принимаются,
+# но НЕ сохраняются.
+#
+# Сколько минут без heartbeat юзер (VLESS/AWG) считается онлайн.
 # Прила шлёт heartbeat раз в 60 сек; 5 минут = терпим до 4 пропусков
 # (Doze, плохая сеть, фоновые ограничения Android).
 ONLINE_WINDOW_MINUTES = 5
@@ -109,7 +116,9 @@ def _normalize_protocol(value: str) -> str:
     protocol = (value or "").strip().lower()
     if protocol in ("awg", "amneziawg", "amnezia_wg", "amnezia-wg"):
         return "awg"
-    if protocol == "vless":
+    # hysteria2 живёт в списке VLESS-серверов (VlessManager в приложении),
+    # поэтому учитываем его в бакете vless. Раньше он ошибочно падал в ikev2.
+    if protocol in ("vless", "hysteria2", "hy2"):
         return "vless"
     return "ikev2"
 
@@ -151,6 +160,16 @@ async def update_connection(request: Request):
 
     if not user_id:
         return {"success": 0, "message": "userId required"}
+
+    # IKEv2 больше не учитывается по heartbeat: онлайн берётся напрямую
+    # с серверов (node_exporter, ipsec_clients). connect/heartbeat с
+    # protocol=ikev2 продолжают слать СТАРЫЕ версии приложения — отвечаем ok
+    # для совместимости, но в БД ничего не пишем.
+    # ВНИМАНИЕ: disconnect обрабатываем для ЛЮБОГО протокола — приложение
+    # шлёт disconnect с захардкоженным protocol=ikev2 даже для VLESS/AWG,
+    # а сама обработка идёт только по userId.
+    if action in ("connect", "heartbeat") and protocol == "ikev2":
+        return {"success": 1, "message": "ok"}
 
     if action in ("connect", "heartbeat") and not server_ip:
         return {"success": 0, "message": "serverIp required for connect/heartbeat"}
@@ -253,6 +272,7 @@ async def get_servers_stats():
         from src.db.v1.server_pojo import ServerPojo as Ikev2ServerPojo
         from src.db.v3.a3xui.server_pojo import ServerPojo as VlessServerPojo
         from src.db.v3.awg.server_pojo import ServerPojo as AwgServerPojo
+        from src.utils.server_metrics import get_ipsec_stats
 
         ikev2_servers = await Ikev2ServerPojo.find_all()
         vless_servers = await VlessServerPojo.find_all()
@@ -263,6 +283,7 @@ async def get_servers_stats():
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(minutes=ONLINE_WINDOW_MINUTES)
 
+        # heartbeat-учёт: ТОЛЬКО VLESS и AWG.
         # Раньше тут был delete_many (чистка при КАЖДОМ просмотре статистики —
         # гонка с heartbeat'ами). Теперь чтение ничего не удаляет:
         # окно онлайна — это просто фильтр, физическую чистку делает TTL-индекс.
@@ -273,14 +294,12 @@ async def get_servers_stats():
             }
         ).to_list(length=None)
 
-        total_online = len(active)
-        ikev2_online = sum(1 for c in active if _normalize_protocol(c.get("protocol", "")) == "ikev2")
         vless_online = sum(1 for c in active if _normalize_protocol(c.get("protocol", "")) == "vless")
         awg_online = sum(1 for c in active if _normalize_protocol(c.get("protocol", "")) == "awg")
 
-        # Count by server
+        # Count by server (только vless/awg; записи ikev2 от старых версий
+        # приложения могут ещё лежать в БД до истечения TTL — игнорируем их)
         server_counts_by_protocol = {
-            "ikev2": {},
             "vless": {},
             "awg": {},
         }
@@ -289,20 +308,37 @@ async def get_servers_stats():
             if not ip:
                 continue
             protocol = _normalize_protocol(c.get("protocol", ""))
+            if protocol not in server_counts_by_protocol:
+                continue
             protocol_counts = server_counts_by_protocol[protocol]
             protocol_counts[ip] = protocol_counts.get(ip, 0) + 1
 
-        # Build response
+        # ── IKEv2: онлайн напрямую с серверов ────────────────────────────────
+        # Источник — фоновый опрос node_exporter (:9100/metrics) каждого
+        # IKEv2-сервера в server_metrics.py: ipsec_clients / ipsec_connecting.
+        # Если данные по серверу устарели (сервер недоступен) — показываем 0
+        # и metricsFresh=false.
+        ikev2_online = 0
+        ikev2_connecting = 0
         ikev2_data = []
         for s in ikev2_servers:
+            stats = get_ipsec_stats(s.ip_address)
+            online = stats["clients"] if stats else 0
+            connecting = stats["connecting"] if stats else 0
+            ikev2_online += online
+            ikev2_connecting += connecting
             ikev2_data.append({
                 "ipAddress": s.ip_address,
                 "country": s.country,
                 "countryCode": s.country_code,
                 "status": s.status,
                 "premium": s.premium,
-                "onlineUsers": server_counts_by_protocol["ikev2"].get(s.ip_address, 0),
+                "onlineUsers": online,
+                "connectingUsers": connecting,
+                "metricsFresh": stats is not None,
             })
+
+        total_online = ikev2_online + vless_online + awg_online
 
         vless_data = []
         for s in vless_servers:
@@ -338,9 +374,13 @@ async def get_servers_stats():
                 "awgServers": len(awg_servers),
                 "totalOnline": total_online,
                 "ikev2Online": ikev2_online,
+                "ikev2Connecting": ikev2_connecting,
                 "vlessOnline": vless_online,
                 "awgOnline": awg_online,
+                # окно heartbeat-онлайна: касается только VLESS/AWG
                 "onlineWindowMinutes": ONLINE_WINDOW_MINUTES,
+                # источник данных IKEv2 — прямой опрос серверов
+                "ikev2Source": "node_exporter",
                 "servers": ikev2_data,
                 "vlessServersList": vless_data,
                 "awgServersList": awg_data,
