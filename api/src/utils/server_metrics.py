@@ -31,10 +31,16 @@ rx_pattern = re.compile(r'node_network_receive_bytes_total\{[^}]*device="([^"]+)
 ipsec_clients_pattern = re.compile(r'^ipsec_clients(?:\{[^}]*\})?\s+([0-9]+(?:\.[0-9]+)?)\s*$', re.MULTILINE)
 ipsec_connecting_pattern = re.compile(r'^ipsec_connecting(?:\{[^}]*\})?\s+([0-9]+(?:\.[0-9]+)?)\s*$', re.MULTILINE)
 
+# Онлайн IKEv2 опрашивается отдельным быстрым циклом (update_ipsec_online_loop)
+# каждые IPSEC_POLL_INTERVAL_SECONDS секунд — независимо от медленного цикла
+# load%/Remnawave (раз в 60 сек).
+IPSEC_POLL_INTERVAL_SECONDS = 5
+# Как часто перечитывать список IKEv2-серверов из Mongo в быстром цикле.
+IPSEC_SERVERS_REFRESH_SECONDS = 30
 # Сколько секунд данные ipsec_* считаются свежими.
-# Опрос идёт раз в 60 сек => 180 сек = терпим до 2 пропущенных опросов,
-# после этого сервер показывает 0 (данным верить нельзя).
-IPSEC_STATS_MAX_AGE_SECONDS = 180
+# При опросе раз в 5 сек 60 сек = терпим до 12 пропущенных опросов
+# (транзиентные сетевые сбои), после этого сервер показывает 0 и ⚠️.
+IPSEC_STATS_MAX_AGE_SECONDS = 60
 
 
 def load_state():
@@ -149,10 +155,12 @@ async def fetch_and_update_metric(client: httpx.AsyncClient, ip: str):
         
         if ip in SERVER_METRICS_STATE:
             old = SERVER_METRICS_STATE[ip]
-            dt = now - old["timestamp"]
+            # .get: запись могла быть создана быстрым ipsec-циклом,
+            # у неё ещё нет timestamp/tx_bytes/rx_bytes.
+            dt = now - old.get("timestamp", 0)
             if 0 < dt < MAX_METRIC_AGE_SECONDS:
-                tx_rate = (new_tx - old["tx_bytes"]) / dt
-                rx_rate = (new_rx - old["rx_bytes"]) / dt
+                tx_rate = (new_tx - old.get("tx_bytes", 0.0)) / dt
+                rx_rate = (new_rx - old.get("rx_bytes", 0.0)) / dt
                 max_rate = max(tx_rate, rx_rate)
                 
                 # Calculate percentage against 1Gbps max
@@ -245,6 +253,63 @@ async def fetch_remnawave_metrics(client: httpx.AsyncClient):
         logger.warning(f"Network error fetching Remnawave metrics: {e}")
     except Exception as e:
         logger.error(f"Error fetching Remnawave metrics: {e}")
+
+
+async def fetch_ipsec_online(client: httpx.AsyncClient, ip: str):
+    """Быстрый опрос ТОЛЬКО онлайна IKEv2 (ipsec_clients / ipsec_connecting).
+
+    Не трогает timestamp/tx_bytes/rx_bytes/load_percent — расчёт load%
+    остаётся за медленным циклом update_server_metrics_loop.
+    """
+    try:
+        url = f"http://{ip}:9100/metrics"
+        resp = await client.get(url, timeout=4.0)
+        resp.raise_for_status()
+        clients, connecting = parse_ipsec_stats(resp.text)
+        if clients is None:
+            # Метрики ipsec_* на сервере нет — свежесть не продлеваем,
+            # чтобы стухшие данные честно показались как недоступные.
+            return
+        entry = SERVER_METRICS_STATE.setdefault(ip, {})
+        entry["ipsec_clients"] = clients
+        entry["ipsec_connecting"] = connecting if connecting is not None else 0
+        entry["ipsec_updated_at"] = time.time()
+    except Exception as e:
+        # debug, не warning: при опросе раз в 5 сек транзиентные сбои — норма,
+        # иначе лог зальёт. Недоступность сервера видно по ⚠️ в боте.
+        logger.debug(f"IKEv2 online poll FAILED: {ip} -> {e}")
+
+
+async def update_ipsec_online_loop():
+    """Быстрый цикл онлайна IKEv2: раз в IPSEC_POLL_INTERVAL_SECONDS секунд
+    параллельно опрашивает node_exporter всех IKEv2-серверов.
+
+    Отделён от update_server_metrics_loop (60 сек), чтобы не дёргать
+    Remnawave и расчёт load% каждые 5 секунд.
+    """
+    from src.db.v1.server_pojo import ServerPojo as Ikev2ServerPojo
+
+    logger.info(f"Starting fast IKEv2 online poller (every {IPSEC_POLL_INTERVAL_SECONDS} sec)...")
+    ips: list = []
+    refresh_at = 0.0
+    async with httpx.AsyncClient(verify=False) as client:
+        while True:
+            try:
+                # Список серверов перечитываем из Mongo раз в 30 сек,
+                # а не на каждый тик.
+                now_mono = time.monotonic()
+                if now_mono >= refresh_at:
+                    servers = await Ikev2ServerPojo.find_all()
+                    ips = [s.ip_address for s in servers if s.ip_address]
+                    refresh_at = now_mono + IPSEC_SERVERS_REFRESH_SECONDS
+                if ips:
+                    await asyncio.gather(
+                        *[fetch_ipsec_online(client, ip) for ip in ips],
+                        return_exceptions=True,
+                    )
+            except Exception as e:
+                logger.error(f"Error in update_ipsec_online_loop: {e}")
+            await asyncio.sleep(IPSEC_POLL_INTERVAL_SECONDS)
 
 
 async def update_server_metrics_loop():
