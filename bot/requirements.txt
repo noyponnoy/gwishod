@@ -1,0 +1,6 @@
+python-telegram-bot[job-queue]>=21.3
+httpx>=0.26.0
+python-dotenv>=1.0.1
+pyzbar>=0.1.9
+Pillow>=10.4.0
+cryptography>=42.0.0

@@ -1,0 +1,248 @@
+/* ════════════════════════════════════════════════════════════════
+   GW VPN Admin Panel — Тематизация
+   CSS-переменные для тёмной и светлой темы.
+   Светлая — по умолчанию, тёмная — через [data-theme="dark"]
+   или prefers-color-scheme, если нет явного выбора.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Акцентная шкала (синий) ───────────────────────────────── */
+  --accent-50:  #eff6ff;
+  --accent-100: #dbeafe;
+  --accent-200: #bfdbfe;
+  --accent-300: #93c5fd;
+  --accent-400: #60a5fa;
+  --accent-500: #3b82f6;
+  --accent-600: #2563eb;
+  --accent-700: #1d4ed8;
+  --accent-800: #1e40af;
+  --accent-900: #1e3a8a;
+
+  /* ── Семантические цвета ────────────────────────────────────── */
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --success-fg: #16a34a;
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.12);
+  --warn-fg: #d97706;
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger-fg: #dc2626;
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.12);
+
+  /* ── Декоративные слои как на экране входа ─────────────────── */
+  --panel-surface: rgba(255, 255, 255, 0.76);
+  --panel-surface-strong: rgba(255, 255, 255, 0.88);
+  --panel-surface-soft: rgba(255, 255, 255, 0.48);
+  --glass-border: rgba(121, 145, 191, 0.24);
+  --glass-highlight: rgba(255, 255, 255, 0.72);
+  --glow-blue: rgba(59, 130, 246, 0.22);
+  --glow-violet: rgba(124, 58, 237, 0.16);
+  --glow-cyan: rgba(14, 165, 233, 0.14);
+
+  /* ── Светлая тема (по умолчанию) ────────────────────────────── */
+  --bg-app: #eef3ff;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f6f8ff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f0f1f6;
+  --bg-active: #e8eaf2;
+  --bg-overlay: rgba(15, 17, 34, 0.45);
+
+  --fg-primary: #1a1b2e;
+  --fg-secondary: #4a4d68;
+  --fg-muted: #8b8fa8;
+  --fg-disabled: #b8bccf;
+
+  --border: #e4e6ef;
+  --border-strong: #d1d5e0;
+  --border-focus: var(--accent-400);
+
+  --shadow-sm: 0 1px 2px rgba(20, 22, 50, 0.06);
+  --shadow-md: 0 4px 12px rgba(20, 22, 50, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 22, 50, 0.12);
+  --shadow-xl: 0 24px 64px rgba(20, 22, 50, 0.18);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-full: 9999px;
+
+  --sidebar-w: 256px;
+  --topbar-h: 64px;
+  --bottomnav-h: 64px;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Тёмная тема ────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --panel-surface: rgba(18, 20, 35, 0.72);
+  --panel-surface-strong: rgba(19, 21, 37, 0.9);
+  --panel-surface-soft: rgba(35, 39, 67, 0.5);
+  --glass-border: rgba(148, 163, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glow-blue: rgba(59, 130, 246, 0.24);
+  --glow-violet: rgba(139, 92, 246, 0.18);
+  --glow-cyan: rgba(34, 211, 238, 0.12);
+
+  --bg-app: #080b18;
+  --bg-surface: #171826;
+  --bg-surface-2: #1e2032;
+  --bg-elevated: #1c1e30;
+  --bg-hover: #242740;
+  --bg-active: #2c2f4d;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  --fg-primary: #eef0f8;
+  --fg-secondary: #b4b8d4;
+  --fg-muted: #7a7f9e;
+  --fg-disabled: #4a4e68;
+
+  --border: #2a2d44;
+  --border-strong: #3a3d5a;
+  --border-focus: var(--accent-400);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.55);
+
+  --success-bg: rgba(34, 197, 94, 0.16);
+  --success-fg: #4ade80;
+  --warn-bg: rgba(245, 158, 11, 0.16);
+  --warn-fg: #fbbf24;
+  --danger-bg: rgba(239, 68, 68, 0.16);
+  --danger-fg: #f87171;
+  --info-bg: rgba(59, 130, 246, 0.16);
+}
+
+/* Если пользователь не выбирал тему вручную — следуем системе */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --panel-surface: rgba(18, 20, 35, 0.72);
+    --panel-surface-strong: rgba(19, 21, 37, 0.9);
+    --panel-surface-soft: rgba(35, 39, 67, 0.5);
+    --glass-border: rgba(148, 163, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.08);
+    --glow-blue: rgba(59, 130, 246, 0.24);
+    --glow-violet: rgba(139, 92, 246, 0.18);
+    --glow-cyan: rgba(34, 211, 238, 0.12);
+
+    --bg-app: #080b18;
+    --bg-surface: #171826;
+    --bg-surface-2: #1e2032;
+    --bg-elevated: #1c1e30;
+    --bg-hover: #242740;
+    --bg-active: #2c2f4d;
+    --bg-overlay: rgba(0, 0, 0, 0.6);
+
+    --fg-primary: #eef0f8;
+    --fg-secondary: #b4b8d4;
+    --fg-muted: #7a7f9e;
+    --fg-disabled: #4a4e68;
+
+    --border: #2a2d44;
+    --border-strong: #3a3d5a;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+    --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.55);
+
+    --success-bg: rgba(34, 197, 94, 0.16);
+    --success-fg: #4ade80;
+    --warn-bg: rgba(245, 158, 11, 0.16);
+    --warn-fg: #fbbf24;
+    --danger-bg: rgba(239, 68, 68, 0.16);
+    --danger-fg: #f87171;
+    --info-bg: rgba(59, 130, 246, 0.16);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Базовый сброс и типографика
+   ════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font);
+  background:
+    radial-gradient(circle at 14% -10%, var(--glow-blue), transparent 34rem),
+    radial-gradient(circle at 88% 0%, var(--glow-violet), transparent 32rem),
+    radial-gradient(circle at 76% 108%, var(--glow-cyan), transparent 30rem),
+    linear-gradient(135deg, var(--bg-app), var(--bg-surface-2));
+  background-attachment: fixed;
+  color: var(--fg-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  min-height: 100dvh;
+  transition: background var(--transition), color var(--transition);
+}
+
+#root { min-height: 100vh; min-height: 100dvh; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: none; background: none; }
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+img, svg { display: block; max-width: 100%; }
+
+::selection { background: var(--accent-200); color: var(--accent-900); }
+[data-theme="dark"] ::selection { background: var(--accent-700); color: #fff; }
+
+/* Скроллбары */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--bg-app);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+/* Фокус-кольцо для доступности */
+:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Mobile performance: disable heavy effects ────────────── */
+@media (max-width: 1024px) {
+  body { background-attachment: scroll; }
+
+  .sidebar,
+  .topbar,
+  .bottom-nav,
+  .card,
+  .stat-card,
+  .dashboard-hero,
+  .dashboard-health-card,
+  .server-tile,
+  .modal {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .app-shell::before { display: none; }
+
+  .stat-card:hover,
+  .server-tile:hover {
+    transform: none !important;
+  }
+
+  .pulse-dot::after { animation: none !important; opacity: 0; }
+  .spinner { animation-duration: 0.9s !important; }
+}
