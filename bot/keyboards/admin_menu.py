@@ -19,6 +19,7 @@ def main_menu():
         [InlineKeyboardButton("📊 Общая сводка по пользователям", callback_data="analytics:summary")],
         [InlineKeyboardButton("🖥 Общая сводка по серверам", callback_data="analytics:servers")],
         [InlineKeyboardButton("⚡ Управление серверами", callback_data="menu:servers")],
+        [InlineKeyboardButton("📡 Доступность из РФ", callback_data="monitor:home")],
         [InlineKeyboardButton("⚙️ Настройки", callback_data="menu:settings")],
     ])
     return InlineKeyboardMarkup(rows)

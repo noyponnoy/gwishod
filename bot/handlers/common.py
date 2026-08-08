@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from bot.keyboards.admin_menu import main_menu, back_to_main, start_bottom_kb
 from bot.services.qr_decoder import decode_qr_from_bytes, decode_qr_from_text
 from bot.services.api_client import api
+from bot.utils.auth import admin_only
 from bot.handlers.admin.users import _show_user_card
 
 
@@ -92,6 +93,7 @@ async def qr_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _show_user_card(update, text, is_message=True)
 
 
+@admin_only
 async def diag(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/diag — самодиагностика: версии файлов, API, job_queue.
 
@@ -111,10 +113,11 @@ async def diag(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # отличается от ожидаемого в PR — файл не скопировался / старый.
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     files = [
-        "main.py", "utils/format.py", "handlers/common.py",
+        "main.py", "utils/format.py", "utils/tg.py", "handlers/common.py",
         "handlers/admin/servers.py", "handlers/admin/servers_awg.py",
         "handlers/admin/analytics.py", "handlers/admin/unified_text.py",
-        "handlers/admin/users.py", "services/api_client.py",
+        "handlers/admin/users.py", "handlers/admin/monitoring.py",
+        "services/api_client.py", "services/geopinger.py", "services/vpn_monitor.py",
     ]
     lines.append("\nФайлы (md5/8):")
     for f in files:
@@ -141,5 +144,22 @@ async def diag(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"  ✅ {name} — OK ({ms}ms)")
         else:
             lines.append(f"  ❌ {name} — {str(r.get('message', 'нет ответа'))[:80]} ({ms}ms)")
+
+    # Мониторинг доступности из РФ: включён ли, когда был последний обход
+    from bot.config import GEOPINGER_URL, MONITOR_ENABLED, MONITOR_INTERVAL_SEC
+    lines.append("\nМониторинг РФ:")
+    if not GEOPINGER_URL or not MONITOR_ENABLED:
+        lines.append("  ⚪️ выключен (нет GEOPINGER_URL в .env)")
+    else:
+        from bot.services import vpn_monitor as mon
+        snap = mon.status_snapshot()
+        age = int(_t.time() - snap["last_cycle"]) if snap["last_cycle"] else None
+        lines.append(f"  пингер: {GEOPINGER_URL}")
+        lines.append(f"  интервал: {MONITOR_INTERVAL_SEC // 60} мин, адресов в базе: {len(snap['items'])}")
+        lines.append(
+            f"  последний обход: {age} сек назад" if age is not None else "  последний обход: ещё не было"
+        )
+        bad = sum(1 for i in snap["items"] if i["verdict"] in mon.BAD_VERDICTS)
+        lines.append(f"  проблемных сейчас: {bad}")
 
     await update.message.reply_text("\n".join(lines))
