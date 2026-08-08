@@ -79,12 +79,16 @@ MONITOR_OK_RATIO = _num("MONITOR_OK_RATIO", 0.5, float)
 # от единичных сетевых мигов), и сколько удачных — чтобы его закрыть.
 MONITOR_FAIL_STREAK = _num("MONITOR_FAIL_STREAK", 2)
 MONITOR_OK_STREAK = _num("MONITOR_OK_STREAK", 1)
-# Порты для проверки узлов. AWG работает по UDP, снаружи его не пощупать,
-# поэтому о доступности судим по управляющему TCP-порту.
+# Порты для проверки узлов — везде TCP 22. IKEv2 (UDP 500/4500) и AWG (UDP)
+# снаружи не пощупать: у UDP нет рукопожатия, «нет ответа» и «дошло, но
+# молчит» неотличимы. Поэтому о доступности узла судим по управляющему
+# TCP-порту: не доходит до него — не доходит и до сервера.
+MONITOR_IKEV2_PORTS = _ints("MONITOR_IKEV2_PORTS", "22")
 MONITOR_AWG_PORTS = _ints("MONITOR_AWG_PORTS", "22")
 MONITOR_VLESS_PORTS = _ints("MONITOR_VLESS_PORTS", "22")
-# Добавлять к проверке VLESS рабочий порт из настроек сервера (например 8443).
-MONITOR_VLESS_USE_CONFIG_PORT = _flag("MONITOR_VLESS_USE_CONFIG_PORT", True)
+# Дополнительно проверять у VLESS рабочий порт из настроек сервера (8443 и
+# подобные). По умолчанию выключено — проверяем только 22.
+MONITOR_VLESS_USE_CONFIG_PORT = _flag("MONITOR_VLESS_USE_CONFIG_PORT", False)
 # Проверять ли выключенные в панели серверы.
 MONITOR_INCLUDE_DISABLED = _flag("MONITOR_INCLUDE_DISABLED", False)
 # Время суточной сводки и часовой пояс всех отчётов (по умолчанию МСК).

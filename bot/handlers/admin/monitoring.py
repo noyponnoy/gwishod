@@ -360,11 +360,12 @@ async def monitor_selftest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif err:
         lines.append(f"⚠️ Список точек не получен: {esc(err)}")
 
-    probe = await geopinger.ping("ya.ru", countries=["ru"], limit=3)
+    # Проверяем тем же методом, которым работает мониторинг — TCP.
+    probe = await geopinger.tcp("ya.ru", [443], countries=["ru"], limit=3)
     if probe.usable:
-        lines.append(f"\n✅ Тестовый пинг ya.ru из РФ: {esc(probe.short())}")
+        lines.append(f"\n✅ Тестовая проверка ya.ru:443 из РФ: {esc(probe.short())}")
     else:
-        lines.append(f"\n❌ Тестовый пинг не прошёл: {esc(probe.error or 'нет данных')}")
+        lines.append(f"\n❌ Тестовая проверка не прошла: {esc(probe.error or 'нет данных')}")
         lines.append("Проверьте ключ доступа и что порт пингера открыт для бота.")
 
     lines.append(

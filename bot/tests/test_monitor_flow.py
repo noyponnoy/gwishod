@@ -86,7 +86,9 @@ def _probe(ok: int, total: int, error: str | None = None) -> Probe:
 
 
 async def fake_ping(target, countries=None, limit=None):
-    return _for(target, countries)
+    # Все проверки идут по TCP. Если сюда кто-то попал — значит в целях
+    # снова завёлся ICMP, и тест обязан это заметить.
+    raise AssertionError("ICMP не используется: все протоколы проверяются по TCP 22")
 
 
 async def fake_tcp(target, ports, countries=None, limit=None):
@@ -145,6 +147,11 @@ check("проверены только включённые серверы", res
 check("выключенный сервер пропущен", result["summary"][mon.OK], 3)
 check("админов не беспокоим", len(SENT), 0)
 
+targets, _ = run(mon.collect_targets())
+check("все протоколы проверяются по TCP, без ICMP", {t.method for t in targets}, {"tcp"})
+check("порт у всех один — 22", {tuple(t.ports) for t in targets}, {(22,)})
+check("охвачены все три протокола", {t.proto for t in targets}, {"ikev2", "awg", "vless"})
+
 
 # ── Сценарий 2: блокировка в РФ ─────────────────────────────────────────────
 print("\nСценарий 2: VLESS перестал отвечать из РФ, заграница видит")
@@ -161,7 +168,7 @@ alert = SENT[0]
 check_in("в алерте сказано про недоступность из РФ", "недоступен из РФ", alert)
 check_in("указан адрес сервера", "vl01.example.store", alert)
 check_in("указано название сервера", "GWAPP NL01", alert)
-check_in("видно, что проверялись порты", "TCP 22, 8443", alert)
+check_in("видно, каким методом проверяли", "TCP 22", alert)
 check_in("видно, что заграница отвечает", "Из-за рубежа: 4 из 4", alert)
 check_in("названы города, где не отвечает", "Не отвечает:", alert)
 check_in("есть время по МСК", "(МСК)", alert)
