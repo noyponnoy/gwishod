@@ -32,6 +32,9 @@ from src.endpoints.v3.awg import bot_api as awg_bot_api
 from src.endpoints.v3.awg import client as awg_client_api
 from src.endpoints.v3.awg import agent_api as awg_agent_api
 
+from src.endpoints.v3.gw import bot_api as gw_bot_api
+from src.endpoints.v3.gw import client as gw_client_api
+
 app = FastAPI()
 
 # ─────────────────────────────────────────────
@@ -179,3 +182,7 @@ app.add_api_route("/vpn/api/v3/3xui/admin/upload", a3xui_upload_file.upload_file
 app.include_router(awg_bot_api.router)
 app.include_router(awg_client_api.router)
 app.include_router(awg_agent_api.router)
+
+# GW Bot & Client APIs
+app.include_router(gw_bot_api.router)
+app.include_router(gw_client_api.router)

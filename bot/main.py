@@ -64,6 +64,16 @@ from bot.handlers.admin.servers_awg import (
     awg_server_edit_prompt,
     awg_server_edit_city_prompt,
 )
+from bot.handlers.admin.servers_gw import (
+    servers_gw,
+    gw_server_info,
+    gw_add_prompt,
+    gw_server_toggle,
+    gw_server_prem,
+    gw_server_del,
+    gw_field_prompt,
+    gw_field_set,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -197,6 +207,16 @@ def main():
     app.add_handler(CallbackQueryHandler(awg_server_edit_prompt, pattern=r"^awg_edit:.+$"))
     app.add_handler(CallbackQueryHandler(awg_server_edit_city_prompt, pattern=r"^awg_edit_city:.+$"))
     app.add_handler(CallbackQueryHandler(awg_server_del, pattern=r"^awg_del:.+$"))
+
+    # GW Handlers
+    app.add_handler(CallbackQueryHandler(servers_gw, pattern="^servers:gw$"))
+    app.add_handler(CallbackQueryHandler(gw_add_prompt, pattern=r"^gw_add$"))
+    app.add_handler(CallbackQueryHandler(gw_server_info, pattern=r"^gw_s:.+$"))
+    app.add_handler(CallbackQueryHandler(gw_server_toggle, pattern=r"^gw_tog:.+$"))
+    app.add_handler(CallbackQueryHandler(gw_server_prem, pattern=r"^gw_prem:.+$"))
+    app.add_handler(CallbackQueryHandler(gw_server_del, pattern=r"^gw_del:.+$"))
+    app.add_handler(CallbackQueryHandler(gw_field_prompt, pattern=r"^gw_edit:.+$"))
+    app.add_handler(CallbackQueryHandler(gw_field_set, pattern=r"^gw_set:.+$"))
 
     # QR code: photo
     app.add_handler(MessageHandler(filters.PHOTO, qr_photo_handler))

@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from bot.handlers.admin.subscriptions import tariff_create_text, tariff_edit_text
 from bot.handlers.admin.servers import server_edit_text, vless_edit_text, vless_create_text
 from bot.handlers.admin.servers_awg import awg_server_edit_text
+from bot.handlers.admin.servers_gw import gw_text_router
 from bot.handlers.admin.settings import admin_add_text
 from bot.handlers.common import qr_text_handler
 from bot.services.qr_decoder import decode_qr_from_text
@@ -37,6 +38,10 @@ async def unified_text_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if wf in ["server_awg_edit", "server_awg_edit_city"]:
         await awg_server_edit_text(update, context)
+        return
+
+    if wf in ["server_gw_edit", "server_gw_add"]:
+        await gw_text_router(update, context)
         return
 
     if wf == "admin_add":

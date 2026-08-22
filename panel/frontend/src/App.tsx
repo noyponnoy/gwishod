@@ -12,6 +12,7 @@ import { Invoices } from './pages/Invoices';
 import { ServersIkev2 } from './pages/ServersIkev2';
 import { ServersVless } from './pages/ServersVless';
 import { ServersAwg } from './pages/ServersAwg';
+import ServersGw from './pages/ServersGw';
 import { Settings } from './pages/Settings';
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ function AppRoutes() {
       <Route path="/servers/ikev2" element={<Protected><ServersIkev2 /></Protected>} />
       <Route path="/servers/vless" element={<Protected><ServersVless /></Protected>} />
       <Route path="/servers/awg" element={<Protected><ServersAwg /></Protected>} />
+      <Route path="/servers/gw" element={<Protected><ServersGw /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

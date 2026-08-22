@@ -91,6 +91,7 @@ def servers_menu():
         [InlineKeyboardButton("🔐 IKEv2", callback_data="servers:ikev2")],
         [InlineKeyboardButton("⚡ VLESS", callback_data="servers:vless")],
         [InlineKeyboardButton("👽 AWG", callback_data="servers:awg")],
+        [InlineKeyboardButton("🌐 GW", callback_data="servers:gw")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="menu:main")],
     ])
 

@@ -15,6 +15,8 @@ _client = httpx.AsyncClient(timeout=30.0)
 JSON_BODY_PATHS = {
     "/vpn/api/v1/bot/servers_awg/create",
     "/vpn/api/v1/bot/servers_awg/delete",
+    "/vpn/api/v1/bot/servers_gw/create",
+    "/vpn/api/v1/bot/servers_gw/delete",
 }
 _CACHE = {}
 _CACHE_TTL = 5

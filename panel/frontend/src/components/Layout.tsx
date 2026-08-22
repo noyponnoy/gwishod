@@ -21,6 +21,7 @@ const NAV: NavItemDef[] = [
   { to: '/servers/ikev2', icon: 'serverIkev2', label: 'IKEv2', group: 'servers' },
   { to: '/servers/vless', icon: 'serverVless', label: 'VLESS', group: 'servers' },
   { to: '/servers/awg', icon: 'serverAwg', label: 'AWG', group: 'servers' },
+  { to: '/servers/gw', icon: 'serverGw', label: 'GW', group: 'servers' },
   { to: '/settings', icon: 'settings', label: 'Настройки' },
 ];
 
